@@ -1,0 +1,89 @@
+# Local development topology (ADR-0002, ADR-0003).
+# Phase 1: prove the full stack boots and /health responds.
+# Later phases mount additional workers, the frontend, and an edge proxy.
+#
+# Usage: docker compose up -d   |   docker compose logs -f api
+#        docker compose down    |   docker compose down -v   (wipe data)
+
+name: quant-platform
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV:-local}
+  APP_LOG_LEVEL: ${APP_LOG_LEVEL:-INFO}
+  APP_LOG_JSON: ${APP_LOG_JSON:-false}
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_USER: ${DB_USER:-quant}
+  DB_PASSWORD: ${DB_PASSWORD:-quant}
+  DB_NAME: ${DB_NAME:-quant_platform}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  BROKER_PROVIDER: ${BROKER_PROVIDER:-fake}
+  BROKER_PAPER: ${BROKER_PAPER:-true}
+
+services:
+  postgres:
+    image: timescale/timescaledb:2.15.2-pg16
+    environment:
+      POSTGRES_USER: ${DB_USER:-quant}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-quant}
+      POSTGRES_DB: ${DB_NAME:-quant_platform}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-quant} -d ${DB_NAME:-quant_platform}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment: *backend-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  worker:
+    build: ./backend
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info"]
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  beat:
+    build: ./backend
+    command: ["celery", "-A", "app.worker.celery_app", "beat", "--loglevel=info"]
+    environment: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redis-data:
