@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Institutional AI Quant Research & Trading Platform
 
 An internal, hedge-fund-grade platform for market research, quantitative
@@ -74,3 +75,7 @@ make down
 
 See [`ROADMAP.md`](./ROADMAP.md). The current phase is marked at the top of
 this README. Work proceeds strictly in order.
+=======
+# AI-Quant-Platform
+creating a working ai agent that works using headfund methords
+>>>>>>> 50bbc21894d43db3248a71b40fb17a1c852b5626

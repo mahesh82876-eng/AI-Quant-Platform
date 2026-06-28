@@ -9,6 +9,8 @@ their owning phase (e.g., ingestion in Phase 6, backtests in Phase 11).
 
 from __future__ import annotations
 
+from typing import Any
+
 from celery import Celery
 from celery.signals import task_postrun, task_prerun
 
@@ -45,11 +47,12 @@ celery_app = create_celery()
 
 
 # ---- Correlation propagation across task boundaries (ADR-0008) ----
-@task_prerun.connect
-def _bind_task_context(task_id: str, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+# Celery's signal decorators are untyped; suppress the misc decorator warning.
+@task_prerun.connect  # type: ignore[misc,untyped-decorator]
+def _bind_task_context(task_id: str, *args: Any, **kwargs: Any) -> None:
     bind_context(task_id=task_id)
 
 
-@task_postrun.connect
-def _clear_task_context(*args, **kwargs) -> None:  # type: ignore[no-untyped-def]
+@task_postrun.connect  # type: ignore[misc,untyped-decorator]
+def _clear_task_context(*args: Any, **kwargs: Any) -> None:
     clear_context()

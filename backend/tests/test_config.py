@@ -68,8 +68,10 @@ def test_log_json_forced_in_production(monkeypatch):
 
 
 def test_invalid_env_rejected(monkeypatch):
+    from pydantic import ValidationError
+
     monkeypatch.setenv("APP_ENV", "not-a-real-env")
     from app.config import AppSettings
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         AppSettings()

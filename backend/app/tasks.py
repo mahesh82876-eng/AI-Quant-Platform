@@ -12,7 +12,7 @@ from app.worker import celery_app
 log = get_logger("app.tasks")
 
 
-@celery_app.task(name="app.tasks.ping")
+@celery_app.task(name="app.tasks.ping")  # type: ignore[misc,untyped-decorator]
 def ping() -> str:
     """Round-trip health task used by the smoke test and Docker healthcheck."""
     log.info("ping_task_executed")

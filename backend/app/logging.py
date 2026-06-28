@@ -46,7 +46,8 @@ def _redact_secrets(
             return type(value)(_scrub(v) for v in value)
         return value
 
-    return _scrub(event_dict)
+    scrubbed = _scrub(event_dict)
+    return scrubbed if isinstance(scrubbed, dict) else dict(scrubbed)
 
 
 def configure_logging(level: str = "INFO", json_output: bool = False) -> None:
@@ -56,7 +57,7 @@ def configure_logging(level: str = "INFO", json_output: bool = False) -> None:
         return
 
     # Shared processors for both foreign (stdlib) and structlog events.
-    processors = [
+    processors: list[structlog.typing.ProcessingFunction] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
