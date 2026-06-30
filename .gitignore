@@ -42,10 +42,12 @@ secrets/
 .DS_Store
 Thumbs.db
 
-# ---- Data & models (never commit data or trained artifacts) ----
-data/
-models/
-artifacts/
+# ---- Data & model artifacts (never commit data or trained artifacts) ----
+# NB: source packages named `models/` (e.g. app/models) are NOT matched here;
+# these patterns only catch top-level artifact dirs.
+/data/
+/artifacts/
+/trained_models/
 *.parquet
 *.csv
 *.h5
