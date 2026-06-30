@@ -196,8 +196,17 @@ class BarSeries(BaseModel):
         return BarSeries(symbol=self.symbol, bars=self.bars[:n])
 
     def slice_until(self, timestamp: datetime) -> BarSeries:
-        """Bars strictly before ``timestamp`` — the "information set" at that time."""
+        """Bars strictly before ``timestamp`` — the strict "information set"."""
         return BarSeries(symbol=self.symbol, bars=[b for b in self.bars if b.timestamp < timestamp])
+
+    def slice_through(self, timestamp: datetime) -> BarSeries:
+        """Bars up to and including ``timestamp`` — the information set at a bar close.
+
+        Used by the daily-bar backtest: a strategy sees the bar ending at
+        ``timestamp`` and trades at its close. No lookahead because the fill
+        price is that same bar's close.
+        """
+        return BarSeries(symbol=self.symbol, bars=[b for b in self.bars if b.timestamp <= timestamp])
 
 
 class MarketData(BaseModel):
@@ -226,6 +235,12 @@ class MarketData(BaseModel):
         """Everything observable strictly before ``timestamp`` (no lookahead)."""
         return MarketData(
             series={sym: bs.slice_until(timestamp) for sym, bs in self.series.items()}
+        )
+
+    def slice_through(self, timestamp: datetime) -> MarketData:
+        """Everything observable up to and including ``timestamp`` (bar-close view)."""
+        return MarketData(
+            series={sym: bs.slice_through(timestamp) for sym, bs in self.series.items()}
         )
 
 

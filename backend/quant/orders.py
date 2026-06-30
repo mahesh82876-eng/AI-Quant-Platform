@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from quant.types import OrderSide, OrderType, Side, utcnow
 
@@ -104,15 +104,20 @@ class Order(BaseModel):
     def _norm(cls, v: str) -> str:
         return v.upper().strip()
 
-    @field_validator("order_type")
-    @classmethod
-    def _conditional_prices(cls, t: OrderType, info) -> OrderType:  # type: ignore[no-untyped-def]
-        d = info.data
-        if t in (OrderType.LIMIT, OrderType.STOP_LIMIT) and not d.get("limit_price"):
+    @model_validator(mode="after")
+    def _conditional_prices(self) -> Order:
+        """Ensure limit/stop orders carry the prices their type requires.
+
+        Run in ``after`` mode so every field is already populated — a
+        ``field_validator`` on ``order_type`` would fire before
+        ``limit_price``/``stop_price`` are parsed and reject valid orders.
+        """
+        t = self.order_type
+        if t in (OrderType.LIMIT, OrderType.STOP_LIMIT) and self.limit_price is None:
             raise ValueError(f"{t} order requires limit_price")
-        if t in (OrderType.STOP, OrderType.STOP_LIMIT) and not d.get("stop_price"):
+        if t in (OrderType.STOP, OrderType.STOP_LIMIT) and self.stop_price is None:
             raise ValueError(f"{t} order requires stop_price")
-        return t
+        return self
 
     @property
     def signed_quantity(self) -> float:

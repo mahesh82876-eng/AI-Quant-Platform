@@ -33,7 +33,7 @@ def annualized_return(total_return: float, n_periods: int, periods_per_year: int
     if n_periods <= 0 or total_return <= -1.0:
         return 0.0
     years = n_periods / periods_per_year
-    return (1.0 + total_return) ** (1.0 / years) - 1.0
+    return float((1.0 + total_return) ** (1.0 / years) - 1.0)
 
 
 def annualized_volatility(returns: list[float], periods_per_year: int = 252) -> float:
@@ -52,7 +52,7 @@ def sharpe_ratio(returns: list[float], risk_free_annual: float = 0.0, periods_pe
     sd = stdev(excess)
     if sd == 0:
         return 0.0
-    return (mean(excess) / sd) * math.sqrt(periods_per_year)
+    return float((mean(excess) / sd) * math.sqrt(periods_per_year))
 
 
 def sortino_ratio(returns: list[float], risk_free_annual: float = 0.0, periods_per_year: int = 252) -> float:
@@ -67,7 +67,7 @@ def sortino_ratio(returns: list[float], risk_free_annual: float = 0.0, periods_p
     dd_dev = math.sqrt(sum(e * e for e in downside) / len(downside))
     if dd_dev == 0:
         return 0.0
-    return (mean(excess) / dd_dev) * math.sqrt(periods_per_year)
+    return float((mean(excess) / dd_dev) * math.sqrt(periods_per_year))
 
 
 def max_drawdown(equity: list[float]) -> tuple[float, int]:
@@ -163,7 +163,7 @@ class PerformanceMetrics:
     extra: dict[str, float] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, float | int | str]:
-        d = {
+        d: dict[str, float | int | str] = {
             "total_return": self.total_return,
             "annualized_return": self.annualized_return,
             "annualized_volatility": self.annualized_volatility,

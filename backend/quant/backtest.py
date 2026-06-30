@@ -12,13 +12,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Protocol
 
 from quant.fill_model import CostModel, DEFAULT_COSTS, FillModel, SimpleFillModel
 from quant.metrics import PerformanceMetrics, compute_metrics
-from quant.orders import Fill, Order, OrderSide, OrderType, Signal, SignalType
+from quant.orders import Fill, Order, Signal, SignalType
 from quant.portfolio import Portfolio, PortfolioSnapshot
 from quant.strategy import Strategy
-from quant.types import Bar, BarSeries, MarketData
+from quant.types import Bar, BarSeries, MarketData, OrderSide, OrderType
+
+
+class RiskDecision(Protocol):
+    """Result of a pre-trade risk check (ADR-0006)."""
+
+    allowed: bool
+
+
+class PreTradeChecker(Protocol):
+    """Structural interface for the risk engine's pre-trade gate.
+
+    Defining it as a Protocol here avoids an import cycle with the (future)
+    ``quant.risk`` module while keeping the backtest fully typed. Any object
+    exposing ``pre_trade_check(order, portfolio, prices) -> {allowed: bool}``
+    satisfies it.
+    """
+
+    def pre_trade_check(
+        self, order: Order, portfolio: Portfolio, prices: dict[str, float]
+    ) -> RiskDecision: ...
 
 
 @dataclass
@@ -53,7 +74,7 @@ class BacktestConfig:
     initial_capital: float = 100_000.0
     cost_model: CostModel = field(default_factory=lambda: DEFAULT_COSTS)
     fill_model: FillModel = field(default_factory=lambda: SimpleFillModel())
-    risk_engine: object | None = None  # RiskEngine | None; typed loosely to avoid import cycle
+    risk_engine: PreTradeChecker | None = None  # ADR-0006 pre-trade gate
     trade_on: str = "close"  # which bar field signals execute against next bar
     periods_per_year: int = 252
     risk_free_annual: float = 0.0
@@ -86,8 +107,10 @@ class Backtester:
         n_rejected = 0
 
         for ts in timeline:
-            # Information set: everything strictly before ts (no lookahead).
-            visible = data.slice_until(ts)
+            # Information set: everything up to and including the bar at ts.
+            # A bar's close IS the information available at ts; filling at that
+            # same close is therefore lookahead-free. (Daily-bar convention.)
+            visible = data.slice_through(ts)
             prices = self._last_prices(visible)
 
             # Mark the book to market and record equity *before* this bar's trades.
@@ -102,7 +125,6 @@ class Backtester:
                 n_rebalances += 1
 
             # Translate signals → orders, risk-check, fill, apply.
-            executed_any = False
             for sig in signals:
                 bar = self._bar_for_fill(visible, sig.symbol, ts)
                 if bar is None:
@@ -116,7 +138,6 @@ class Backtester:
                     for f in new_fills:
                         portfolio.apply(f)
                         fills.append(f)
-                        executed_any = True
 
             # Post-trade snapshot at this bar's close.
             snap = portfolio.record_snapshot(prices, ts)
@@ -214,7 +235,6 @@ class Backtester:
         risk = self.config.risk_engine
         if risk is None:
             return False
-        # Duck-typed to avoid a hard import cycle with quant.risk.
         decision = risk.pre_trade_check(order, portfolio, prices)
         return not decision.allowed
 

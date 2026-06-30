@@ -15,8 +15,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from quant.orders import Fill, Order, OrderSide, OrderType
-from quant.types import Bar
+from quant.orders import Fill, Order
+from quant.types import Bar, OrderSide, OrderType
 
 
 # ──────────────────────────────── Cost model ────────────────────────────────
